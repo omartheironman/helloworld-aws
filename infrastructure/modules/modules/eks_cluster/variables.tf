@@ -75,17 +75,7 @@ variable "vpc_private_subnets" {
   description = "Private subnet of vpc."
 }
 
-variable "datadog_api_key" {
-  type        = string
-  description = "Datadog API Key to connect to the HTTPs API."
-  default     = "fa7c638e6c28ed9edf4643d0cb65cb2a"
-}
 
-variable "datadog_app_key" {
-  type        = string
-  description = "Datadog Application Key to connect to the API."
-  default     = "1938c8052dc8469a51f2a26fc3dc5db084d0c3a5"
-}
 
 
 # External DNS
