@@ -1,0 +1,6 @@
+region                = "us-west-2"
+project               = "backend"
+environment           = "stg"
+account_id            = "45654665"
+ovpn_private_ip       = ""
+environment_shortname = ""
