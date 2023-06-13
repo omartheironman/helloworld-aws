@@ -4,7 +4,7 @@ resource "random_password" "ops-adminportal-db-password" {
 }
 
 resource "aws_secretsmanager_secret" "ops-adminportal-db" {
-  name        = "${var.project}-ops-adminportal/user-postgresql-db"
+  name        = "${var.project}-omar-test/user-postgresql-db"
   description = "ops-adminportal password used to access Postgresql."
 }
 

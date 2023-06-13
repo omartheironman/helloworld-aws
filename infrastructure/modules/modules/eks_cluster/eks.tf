@@ -140,7 +140,9 @@ module "eks" {
     }
   ]
 
-  kms_key_administrators = concat([one(data.aws_iam_roles.sso_administratorAccess.arns)], [for user in var.aws_auth_users : user.userarn])
+  kms_key_administrators = concat([for user in var.aws_auth_users : user.userarn])
+
+  # kms_key_administrators = concat([one(data.aws_iam_roles.sso_administratorAccess.arns)], [for user in var.aws_auth_users : user.userarn])
 
 
   aws_auth_users = var.aws_auth_users

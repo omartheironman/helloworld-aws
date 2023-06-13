@@ -1,7 +1,7 @@
 module "ops-adminportal-db" {
   source     = "terraform-aws-modules/rds/aws"
   version    = "5.9.0"
-  identifier = "${var.project}-ops-adminportal"
+  identifier = "${var.project}-omar-rds"
 
   engine               = "postgres"
   engine_version       = var.engine_version
