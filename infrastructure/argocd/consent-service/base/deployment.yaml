@@ -1,0 +1,41 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consent-service
+  labels:
+    app: consent-service
+  namespace: consent-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: consent-service
+  template:
+    metadata:
+      labels:
+        app: consent-service
+    spec:
+      containers:
+        - name: consent-service
+          image: consent-service
+          command: [
+            "./consent_svc",
+            "--config-env-var",
+            "/mnt/config.json"
+          ]
+          ports:
+            - name: go
+              containerPort: 8180
+          volumeMounts:
+            - name: config
+              mountPath: "/mnt/config.json"
+              subPath: config.json
+              readOnly: true
+      volumes:
+        - name: config
+          secret:
+            secretName: consent-service-aws-secret-manager
+            items:
+            - key: config
+              path: config.json
