@@ -1,0 +1,21 @@
+# -- Deploy Argo CD Applications within this helm release
+# @default -- `[]` (See [values.yaml])
+## Ref: https://github.com/argoproj/argo-cd/blob/master/docs/operator-manual/
+applications:
+- name: root-app-${argocd_gitops_repo}
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  project: default
+  sources:
+   - repoURL: git@github.com:<org>/${argocd_gitops_repo}.git
+     path: clusters/${environment}
+     targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+  revisionHistoryLimit: null

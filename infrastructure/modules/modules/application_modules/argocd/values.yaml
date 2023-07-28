@@ -1,0 +1,53 @@
+# https://github.com/argoproj/argo-helm/blob/main/charts/argo-cd/values.yaml
+
+global:
+  logging:
+    format: json
+
+configs:
+  repositories:
+    falco:
+      url: https://falcosecurity.github.io/charts
+      name: falco
+      type: helm
+    kyverno:
+      url: https://kyverno.github.io/kyverno/
+      name: kyverno
+      type: helm
+    prometheus-community:
+      url: https://prometheus-community.github.io/helm-charts
+      name: prometheus-community
+      type: helm
+    external-secrets:
+      url: https://charts.external-secrets.io
+      name: external-secrets
+      type: helm
+    ${argocd_gitops_repo}:
+      url: git@github.com:<org>/${argocd_gitops_repo}.git
+      name: ${argocd_gitops_repo}
+      type: git
+  cm:
+    accounts.image-updater: apiKey
+  rbac:
+    policy.csv: |
+      p, role:image-updater, applications, get, */*, allow
+      p, role:image-updater, applications, update, */*, allow
+      g, image-updater, role:image-updater
+  params.server.insecure: true
+  credentialTemplates:
+    ssh-creds:
+      url: git@github.com:<org>/${argocd_gitops_repo}.git
+      sshPrivateKey: |
+    %{ for line in deploy_key ~}
+      ${line}
+    %{ endfor ~}
+
+server:
+  service:
+    type: LoadBalancer
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+      service.beta.kubernetes.io/aws-load-balancer-scheme: internal
+
+dex:
+  enabled: false
