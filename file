@@ -96,5 +96,50 @@ output "security_group_ids_map" {
 }
 
 
+services = {
+│    2:   service_2 = {
+│    3:     key_name               = "us-west-1"
+│    4:     subnet_name            = "primary-usw1-az3"
+│    5:     iam_instance_profile   = "test_instance"
+│    6:     instance_type          = "c6g.8xlarge"
+│    7:     root_volume_size       = 40
+│    8:     root_volume_iops       = 3000
+│    9:     root_volume_throughput = 125
+│   10:     user_data              = null
+│   11:     count                  = 3
+│   12:     tags = {
+│   13:       "Name"      = "us-west-1-test-ec2"
+│   14:       "SDMRole"   = "dgdgdfg"
+│   15:       "Component" = "dfgdgdfg"
+│   16:       "Type"      = "reserve-adserver"
+│   17:       "CostGroup" = "test"
+│   18:     }
+│   19:     volume_tags = {
+│   20:       "Name" = "us-west-1-test-ec2"
+│   21:     }
+│   22:     ami_filters = [
+│   23:       {
+│   24:         name   = "name"
+│   25:         values = ["test-image*"]
+│   26:       }
+│   27:     ]
+│   28:   }
+│   29: }
+
+variable "services" {
+  type = map(object({
+    instance_type        = string
+    key_name             = string
+    count                = number
+    iam_instance_profile = string
+    user_data            = string
+    root_volume_size     = number
+    root_volume_iops     = number
+    tags                 = map(string)
+    volume_tags          = map(string)
+    ami_filters          = list(string)
+    subnet_name          = string
+  }))
+}
 
 
