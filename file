@@ -142,4 +142,19 @@ variable "services" {
   }))
 }
 
+data "aws_ami" "ami_filter" {
+  for_each    = var.services
+  most_recent = true
+
+  owners = ["self"]
+
+  dynamic "filter" {
+    for_each = each.value.ami_filters
+    content {
+      name   = filter.value.name
+      values = filter.value.values
+    }
+  }
+}
+
 
