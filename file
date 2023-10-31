@@ -1,3 +1,19 @@
+variable "ingress_security_groups" {
+  description = "List of security group IDs for dynamic ingress rules"
+  type        = list(string)
+}
+
+variable "egress_security_groups" {
+  description = "List of security group IDs for dynamic egress rules"
+  type        = list(string)
+}
+
+variable "use_security_groups" {
+  description = "Use security groups for dynamic ingress and egress rules"
+  type        = bool
+  default     = false
+}
+
 resource "aws_security_group" "example" {
   name_prefix = "example-"
   description = "Example Security Group"
