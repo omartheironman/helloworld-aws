@@ -1,39 +1,32 @@
-resource "aws_instance" "this" {
-  for_each = {
-    for service_name, service_config in var.services :
-    service_name => flatten([
-      for i in range(service_config.replicas) :
-      {
-        instance_type               = service_config.instance_type
-        key_name                    = service_config.key_name
-        ami                         = data.aws_ami.ami_filter[service_name].id
-        iam_instance_profile        = service_config.iam_instance_profile
-        user_data                   = service_config.user_data
-        root_block_device = {
-          volume_size = service_config.root_volume_size
-          volume_type = "gp2"
-          iops        = service_config.root_volume_iops
-        }
-        tags = merge(
-          service_config.tags,
-          { "Name" = format("%s-%02d", service_name, i + 1) }
-        )
-      }
-    ])
+resource "aws_security_group" "example" {
+  name_prefix = "example-"
+  description = "Example Security Group"
+
+  dynamic "ingress" {
+    for_each = var.use_security_groups ? var.ingress_security_groups : var.ingress_cidr_blocks
+    content {
+      from_port = ingress.value.from_port
+      to_port   = ingress.value.to_port
+      protocol  = ingress.value.protocol
+
+      # Conditional block based on whether to use security groups or CIDR blocks
+      # Use security groups if var.use_security_groups is true, otherwise use CIDR blocks
+      security_groups = var.use_security_groups ? [ingress.value.security_group_ids] : []
+      cidr_blocks     = var.use_security_groups ? [] : ingress.value.cidr_blocks
+    }
   }
 
-  instance_type               = each.value["instance_type"]
-  key_name                    = each.value["key_name"]
-  ami                         = each.value["ami"]
-  iam_instance_profile        = each.value["iam_instance_profile"]
-  user_data                   = each.value["user_data"]
+  dynamic "egress" {
+    for_each = var.use_security_groups ? var.egress_security_groups : var.egress_cidr_blocks
+    content {
+      from_port = egress.value.from_port
+      to_port   = egress.value.to_port
+      protocol  = egress.value.protocol
 
-  root_block_device {
-    volume_size = each.value["root_block_device"]["volume_size"]
-    volume_type = each.value["root_block_device"]["volume_type"]
-    iops        = each.value["root_block_device"]["iops"]
+      # Conditional block based on whether to use security groups or CIDR blocks
+      # Use security groups if var.use_security_groups is true, otherwise use CIDR blocks
+      security_groups = var.use_security_groups ? [egress.value.security_group_ids] : []
+      cidr_blocks     = var.use_security_groups ? [] : egress.value.cidr_blocks
+    }
   }
-
-  tags = each.value["tags"]
-  subnet_id = data.aws_subnet.subnets[each.key].id  # You may need to adjust this part
 }
