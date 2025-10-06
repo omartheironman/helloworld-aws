@@ -1,1 +1,17 @@
 
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: copy-namespace-label-to-pod
+spec:
+  rules:
+    - name: propagate-ns-label
+      match:
+        resources:
+          kinds:
+            - Pod
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              team: "{{request.namespace.labels.team}}"
