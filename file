@@ -1,13 +1,48 @@
-apiVersion: v1
-kind: Pod
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
 metadata:
-  name: label-test-pod
-  namespace: demo-namespace
-  labels:
-    app: label-tester
+  name: copy-namespace-labels
+  annotations:
+    policies.kyverno.io/title: Copy Namespace Labels
+    policies.kyverno.io/category: Example
 spec:
-  containers:
-    - name: nginx
-      image: nginx:latest
-      ports:
-        - containerPort: 80
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: copy-owner-label-to-deployment
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+              namespaces:
+                - kyv-testing
+      context:
+        - name: owner
+          apiCall:
+            urlPath: "/api/v1/namespaces/{{ request.object.metadata.namespace }}"
+            jmesPath: metadata.labels.owner || 'none'
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              owner: "{{ owner }}"
+
+    - name: copy-all-ns-labels-to-deployment
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+              namespaces:
+                - kyv-testing
+      context:
+        - name: all_labels
+          apiCall:
+            urlPath: "/api/v1/namespaces/{{ request.object.metadata.namespace }}"
+            jmesPath: metadata.labels | merge(@, {"kubernetes.io/metadata.name":null})
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              "{{ all_labels }}"
