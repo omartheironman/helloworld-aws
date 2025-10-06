@@ -1,17 +1,13 @@
-
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: v1
+kind: Pod
 metadata:
-  name: copy-namespace-label-to-pod
+  name: label-test-pod
+  namespace: demo-namespace
+  labels:
+    app: label-tester
 spec:
-  rules:
-    - name: propagate-ns-label
-      match:
-        resources:
-          kinds:
-            - Pod
-      mutate:
-        patchStrategicMerge:
-          metadata:
-            labels:
-              team: "{{request.namespace.labels.team}}"
+  containers:
+    - name: nginx
+      image: nginx:latest
+      ports:
+        - containerPort: 80
