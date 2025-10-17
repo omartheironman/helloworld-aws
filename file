@@ -1,48 +1,223 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: copy-namespace-labels
-  annotations:
-    policies.kyverno.io/title: Copy Namespace Labels
-    policies.kyverno.io/category: Example
-spec:
-  validationFailureAction: Enforce
-  background: false
-  rules:
-    - name: copy-owner-label-to-deployment
-      match:
-        any:
-          - resources:
-              kinds:
-                - Deployment
-              namespaces:
-                - kyv-testing
-      context:
-        - name: owner
-          apiCall:
-            urlPath: "/api/v1/namespaces/{{ request.object.metadata.namespace }}"
-            jmesPath: metadata.labels.owner || 'none'
-      mutate:
-        patchStrategicMerge:
-          metadata:
-            labels:
-              owner: "{{ owner }}"
+Hey K8s team, we made multiple fixes and adjustments to k8s alerts on https://github.com/StackAdapt/alerts/pull/1626. As part of that PR I'm also defaulting components that don't have the proper owner_team label set to route to k8s team as this needs to be addressed on a case by case with each team deploying services there.
+With the fixes on that PR, alerts should start to route to the appropriate teams for services owned by them and any cluster component or any service resource that doesn't have owner_team will be routed to the k8s team channel by default.
+Let me know if there are any concerns or objections to this change!
+#1626 SRV-370: Fixes k8s alerts routing
+K8s alerts routing for metrics coming from kube-state-metrics are always being routed to tech.eng_ops.services due to kube-state-metrics component having the owner_team set to it.
+These changes will group actual owner_team labels from statefulsets, deployments, etc to the correct owner_team.
+Any resources that don't have these defined, will be routed to the k8s team, not the services team, for proper assessment.
+I also moved cluster-level alerts to the kubernetes-cluster.yaml file for proper routing to the k8s team.
+<https://github.com/StackAdapt/alerts|StackAdapt/alerts>StackAdapt/alerts | Oct 15th | Added by GitHub
+:raised_hands:
+4
 
-    - name: copy-all-ns-labels-to-deployment
-      match:
-        any:
-          - resources:
-              kinds:
-                - Deployment
-              namespaces:
-                - kyv-testing
-      context:
-        - name: all_labels
-          apiCall:
-            urlPath: "/api/v1/namespaces/{{ request.object.metadata.namespace }}"
-            jmesPath: metadata.labels | merge(@, {"kubernetes.io/metadata.name":null})
-      mutate:
-        patchStrategicMerge:
-          metadata:
-            labels:
-              "{{ all_labels }}"
+
+
+Daniel Santos
+  Wednesday at 7:36 PM
+@Sean hopefully this aligns a bit with our previous discussions on the ownership for these k8s observability components
+
+
+Omar Moharrem
+  Yesterday at 9:48 AM
+hey boss,
+so we initially made the decision to turn off the defaulting to Kubernetes team for a couple of main reasons, first it was causing a lot of alert fatigue and they were so frequent that we missed critical ones, secondly in an effort to address this change we've taken multiple approaches to enforce owner_team labelling. that is no service is allowed to be spun up to begin with without this label.
+I got a good suggestion from @segun.fagbamiye maybe these alerts should end up in lost channel instead? (edited) 
+
+
+Andrew Kirkpatrick
+  Yesterday at 9:50 AM
+So there have been discussions with the former Cloud Infra folks about how troublesome the lost alerts channel is, purely because of the amount of alerts we then miss and that the channel either gets ignored or is flooded (and unreadable)
+We have to route alerts with no owner somewhere, and going forward they have to go to someone/team. How that works is up for debate though :neko-think: (edited) 
+
+
+Segun Fagbamiye
+  Yesterday at 9:52 AM
+If the alerts are routed to the k8s teams, are we expected to action them for services we don't manage
+for the alerts to be useful , they need to be actionable
+
+
+Samson Chung
+  Yesterday at 10:01 AM
+We removed the default to us back in July with the idea that we would be fine having it not alert any team in particular, we didn't realize it would default to the services team.
+Our solution, which Omar mentioned above, is to have owner_team be required for new services and it's being enforced. So it's a matter of tracking down the existing services with no owner_team and fixing them, but who is responsible is up for decision/debate?
+
+
+Andrew Kirkpatrick
+  Yesterday at 10:02 AM
+I'm absolutely not saying they should be routed to the k8s team. But they do need to be routed to someone who will deal with them.
+or we disable them if there's no owner team? Then enforcing the owner team will eventually plug that gap
+
+
+Andrew Kirkpatrick
+  Yesterday at 10:03 AM
+Agree if it's not actionable, just don't alert (rather than send them to a black hole)
+:+1_brat:
+5
+
+
+
+Samson Chung
+  Yesterday at 10:05 AM
+Yea I think turning it off is an option.
+Technically they're actionable, it's just tedious to track down and ask around what team should own it etc..
+
+
+Samson Chung
+  Yesterday at 10:08 AM
+But right, the OOM alert itself is not always actionable, even if it's correctly labeled.
+
+
+Omar Moharrem
+  Yesterday at 10:09 AM
+I agree with you Andrew, if it doesn't have owner_team then i'd rather not alert. Im very hesitant to put the responsibility of services without the owner_team label on any team to be honest. The only thing I'd recommend is a dashboard to track this down so teams are aware if they are not being alerted and they are on that dashboard they need to fix it. Which we already created here
+
+
+Andrew Kirkpatrick
+  Yesterday at 10:09 AM
+OOM alert itself is not always actionable
+Whether those alerts are actionable or not is a separate problem :wink:
+:sweat_smile:
+1
+
+
+
+Andrew Kirkpatrick
+  Yesterday at 10:10 AM
+Cool can we easily turn off alerts on EKS if there is no owner team? (edited) 
+
+
+Omar Moharrem
+  Yesterday at 10:22 AM
+im not sure how its configured maybe @jonathan.ng can comment but we can default a value other than a specific team (in the else statement) and have a matcher set some null receiver ? (edited) 
+
+
+Jonathan Ng
+  Yesterday at 10:28 AM
+Yeah currently the alert logic is parsing for an existing owner_team label on the resource, defaulting if that isnt found, but we can set it to some null receiver in that case. Though, if we are enforcing the metadata labels policy we should be getting a value have owner_team
+
+
+Daniel Santos
+  Yesterday at 10:35 AM
+The real issue here is that some metrics are generated directly from kubernetes components... in the deployments, statefulsets, persistent volumes and volumeclaims, this all comes from kube-state-metrics which has owner_team set to us. This routing is being fixed as part of this PR so whenever the owner_team label exists on those resources, it will use it instead of the tech.eng_ops.services which is the kube-state-metrics owner_team.
+This alone should triage the big majority of these alerts to the right channels.
+As @Samson Chung mentioned, from now on, any new alerts that is not routing correctly in the platform is due to the owner_team label missing for that specific resource and I believe the k8s team is in a much better position to tackle these.
+Agreed with @Andrew Kirkpatrick here too... someone has to bite the bullet and get those fixed... we went ahead to fix the alert routing based on labels for the impacted resources (and can continue to help on any remaining ones that needs fixing), but the k8s should be the one tackling this.
+
+
+Omar Moharrem
+  Yesterday at 10:44 AM
+@Daniel Santos what do you think about a solution tracking a list of the components without owner_team and not alerting if its not set?
+
+
+Daniel Santos
+  Yesterday at 10:55 AM
+That would impact your customer directly... radio silence is worse than being noisy!
+
+
+Daniel Santos
+  Yesterday at 10:56 AM
+the alert routing to the k8s team will be actionable... on the other hand if you don't get the alert you can't action on it!
+
+
+Jonathan Ng
+  Yesterday at 11:02 AM
+Yeah, I would even suggest creating an alert for resources missing required metadata to close the loop there but the creation of these metadata labels on the resources is subject to the helm charts that we use... the standards are all over the place for third party charts and some outright dont support applying a common set of labels to every thing which makes managing this all trickier (edited) 
+:ok_hand:
+2
+
+
+
+Daniel Santos
+  Yesterday at 11:05 AM
+There's also an ongoing effort to move away from the alerts-sev-* channels to the severity label, so those alerts will likely need to be adjusted as well
+
+
+Omar Moharrem
+  Yesterday at 11:07 AM
+I definitely see your point there @Daniel Santos  the thing, is that I simply can't think of a scenario where our team could take proper, meaningful action on alerts for services we didn't write, don't own, and don't fully understand. (edited) 
+
+
+Daniel Santos
+  Yesterday at 11:10 AM
+I get that! But the k8s team own the platform where these services are running on, not us!
+I get your point, it should not be your responsibility to fix those and I think the k8s team should not be fixing these but I do think you should communicate and help the teams running on the k8s platform so they can go and fix it themselves until you reach a point where the policy does not allow these scenarios to happen again!
+
+
+Daniel Santos
+  Yesterday at 11:12 AM
+by fixing those, I mean the alert routing not actioning on the alert itself
+
+
+Omar Moharrem
+  Yesterday at 12:06 PM
+I just noticed that the draft PR was merged even though we hadn’t reached full alignment yet. I think it’s important that we finalize consensus before merging, especially when there are differing opinions.
+Going forward, I’d appreciate it if PRs involving the K8s team are fully aligned before merging.
+
+
+Sean Vanderheyden
+  Yesterday at 12:09 PM
+There might be some difficulty drawing lines, because we don't have a method of delineating between alerts and on-call alerts right now.
+The k8s team is making changes to reduce the number of alerts that they're being tagged into so that it aligns with what they'd expect to wake up for during on-call. It's fully acknowledged that there might be some silent failures here, and in a postmortem we may have to accept priority work to add that alerting.
+It might make sense to default uncategorised alerts to a low-sev channel without tagging the team in, but the guidance I've been given for on-call expectation is that the service owners are responsible for setting up their own alerting
+
+
+Daniel Santos
+  Yesterday at 12:10 PM
+we can simply default it to #alerts-lost if that's the case
+
+
+Daniel Santos
+  Yesterday at 12:11 PM
+but that alone will not help... we need to notify owners to go and fix / add their labels
+
+
+Sean Vanderheyden
+  Yesterday at 12:11 PM
+That could make sense to me. @diego.munhoz concerns with that approach?
+
+
+Sean Vanderheyden
+  Yesterday at 12:13 PM
+For the owner_team label, we just finished a pass doing this with our services. We can probably use a similar strategy and schedule that work in for the additional resources that will be correctly routing following this PR
+
+
+Daniel Santos
+  Yesterday at 12:22 PM
+Going forward, I’d appreciate it if PRs involving the K8s team are fully aligned before merging.
+@Omar Moharrem that PR was fixing routing issues more than anything else. I reverted your change here since the k8s team own the k8s platform. This change for example had a big impact on the Services team that started receiving a bunch of alerts on our private alert channel from the k8s components affected by the routing.
+I'm totally open to push another change with whatever makes more sense to the k8s team going forward. Just let me know!
+
+
+Diego Munhoz
+  Yesterday at 12:43 PM
+Hey guys, jumping late here, @Sean I believe so. Let's direct it to a alerts-lost channel and communicate it like we have done before with other changes. The k8s-team did a lot to find owners, but I believe we reached the end of that road. I can't see how else we can help, other than raising awareness to the possible teams that should own the "lost alert" to action it. Also @Daniel Santos, I agree we can't just kill these alerts, hence the why directing it to the lost channel makes sense to me.
+
+
+Andrew Kirkpatrick
+  Yesterday at 12:45 PM
+If no-one's committed to cleaning up #alerts-lost then that's no better (and arguably worse) than simply not alerting
+
+
+Diego Munhoz
+  Yesterday at 12:52 PM
+Sure, but here is where we need to raise visibility with the dev teams as well. The alerts channel is us pointing and letting they know: Hey we did everything we could to find an owner, but now we need help.
+
+
+Andrew Kirkpatrick
+  Yesterday at 12:54 PM
+But that we can drive ownership itself from reports using tools like Kyverno. We can chase owners for sure. Then those alerts will suddenly appear in the right places, and they'll have to deal with them.
+#alerts-lost is just noise, IMO there's not much value-add to increasing the noise. (edited) 
+
+
+Sean Vanderheyden
+  Yesterday at 1:26 PM
+It might be valuable following an incident to be able to check whether we opted not to receive an alert or whether we're not measuring for an alert
+:100gif:
+2
+
+
+
+
+
+
+
